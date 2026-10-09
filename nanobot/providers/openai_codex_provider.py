@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import hashlib
 import json
 import re
@@ -178,7 +179,7 @@ class OpenAICodexProvider(LLMProvider):
                 emit_deltas: bool,
             ) -> LLMResponse:
                 wire_body = await prepare_inline_images(without_response_item_ids(request_body))
-                if session_id:
+                if session_id and not os.environ.get("NANOBOT_CODEX_DISABLE_WS"):
                     websocket_result = await self._responses.websocket_request(
                         session_id, DEFAULT_CODEX_URL, headers, wire_body,
                         provider=self._responses_state_provider(),
