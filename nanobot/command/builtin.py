@@ -1087,6 +1087,9 @@ def register_builtin_commands(router: CommandRouter) -> None:
     router.prefix("/dream-restore ", cmd_dream_restore)
     router.exact("/dream-prompt", cmd_dream_prompt)
     router.prefix("/dream-prompt ", cmd_dream_prompt)
+    from nanobot.command.approvals_cmd import register_approval_commands
+
+    register_approval_commands(router)
     router.exact("/evaluator-prompt", cmd_evaluator_prompt)
     router.prefix("/evaluator-prompt ", cmd_evaluator_prompt)
     router.exact("/skill", cmd_skill)
