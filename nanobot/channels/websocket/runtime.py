@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import errno
 import ipaddress
 import json
@@ -49,6 +50,7 @@ from nanobot.webui.metadata import (
     WEBSOCKET_TURN_OWNER_METADATA_KEY,
     WEBUI_TURN_METADATA_KEY,
 )
+from nanobot.webui import voice_reply
 from nanobot.webui.outbound_projection import WebUIOutboundProjector
 from nanobot.webui.outbound_wire import (
     WebUIWirePayload,
@@ -1202,12 +1204,20 @@ class WebSocketChannel(BaseChannel):
         """Serialize one ordinary outbound message selected by the projector."""
         conns = list(self._subs.get(msg.chat_id, ()))
         text = msg.content
+        voice_error: str | None = None
+        if voice_reply.eligible(text, msg.metadata, is_progress=progress_event is not None):
+            # Final answer of a ``voice_reply`` turn: attach synthesized speech (worker thread, bounded wait).
+            audio, voice_error = await voice_reply.synthesize(text)
+            if audio is not None:
+                msg = dataclasses.replace(msg, media=[*msg.media, str(audio)])
         wire_text = self._media.rewrite_local_markdown_images(text)
         payload: dict[str, Any] = {
             "event": "message",
             "chat_id": msg.chat_id,
             "text": wire_text,
         }
+        if voice_error:
+            payload["voice_error"] = voice_error
         turn_id = msg.metadata.get(WEBUI_TURN_METADATA_KEY)
         if isinstance(turn_id, str) and turn_id:
             payload["turn_id"] = turn_id

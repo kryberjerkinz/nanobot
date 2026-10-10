@@ -305,7 +305,7 @@ class BaseChannel(ABC):
             return
 
         meta = metadata or {}
-        if self.supports_streaming:
+        if self.supports_streaming and not meta.get("_suppress_stream"):
             meta = {**meta, "_wants_stream": True}
 
         msg = InboundMessage(

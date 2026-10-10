@@ -47,7 +47,11 @@ from nanobot.webui.file_preview import (
 from nanobot.webui.forking import handle_webui_fork_chat
 from nanobot.webui.gateway_services import GatewayServices
 from nanobot.webui.mcp_presets_api import normalize_mcp_preset_mentions
-from nanobot.webui.metadata import WEBSOCKET_TURN_OWNER_METADATA_KEY
+from nanobot.webui.metadata import (
+    SUPPRESS_STREAM_METADATA_KEY,
+    WEBSOCKET_TURN_OWNER_METADATA_KEY,
+    WEBUI_VOICE_REPLY_METADATA_KEY,
+)
 from nanobot.webui.session_access import (
     SessionMention,
     WebuiSessionAccess,
@@ -665,6 +669,16 @@ class WebUICommandRouter:
         dispatch_content = (
             f"{USER_SHELL_COMMAND} {content[1:].lstrip()}" if is_user_shell else content
         )
+        # Optional ``voice_reply``: deliver this turn's final answer as a voice message. Only for ordinary text, never
+        # for slash commands or shell escapes. The turn is not streamed so the answer arrives as one message that
+        # the gateway can attach audio to (see nanobot/webui/voice_reply.py).
+        if (
+            envelope.get("voice_reply") is True
+            and not is_user_shell
+            and not content.lstrip().startswith(("/", "!"))
+        ):
+            metadata[WEBUI_VOICE_REPLY_METADATA_KEY] = True
+            metadata[SUPPRESS_STREAM_METADATA_KEY] = True
         cli_apps = normalize_cli_app_mentions(envelope.get("cli_apps"))
         if cli_apps:
             metadata["cli_apps"] = cli_apps

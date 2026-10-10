@@ -106,7 +106,8 @@ All frames are JSON text. Each message has an `event` field.
 }
 ```
 
-`media` and `reply_to` are only present when applicable.
+`media` and `reply_to` are only present when applicable. `media_urls` carries signed attachment URLs, and
+`voice_error` (string) is present when a requested [voice reply](#voice-replies) could not be produced.
 
 **`delta`** — streaming text chunk (only when `streaming: true`):
 
@@ -200,7 +201,7 @@ Recognized fields: `content`, `text`, `message` (checked in that order). Invalid
 |--------|--------|--------|
 | `new_chat` | — | Server mints a new `chat_id`, subscribes this connection, replies with `attached`. |
 | `attach` | `chat_id` | Subscribe to an existing `chat_id` (e.g. after a page reload). Replies with `attached`. |
-| `message` | `chat_id`, `content` | Send `content` on `chat_id`. First use auto-attaches; no explicit `attach` needed. |
+| `message` | `chat_id`, `content`, optional `media`, `webui`, `turn_id`, `voice_reply` | Send `content` on `chat_id`. First use auto-attaches; no explicit `attach` needed. `voice_reply: true` asks for a spoken reply (see [Voice replies](#voice-replies)). |
 
 See [Multi-chat multiplexing](#multi-chat-multiplexing) for the full flow.
 
@@ -248,6 +249,29 @@ CORS for this capability endpoint.
 For a remote host opened through the local WebUI, update the local installation
 and the remote gateway together to use binary attachments. An older host's text
 chats and HTTP reads remain available.
+
+## Voice replies
+
+A client can set `voice_reply: true` (boolean, otherwise ignored) on a `message` envelope to ask for this turn's
+final answer as a voice message:
+
+```json
+{"type":"message","chat_id":"chat-id","content":"how is the house?","webui":true,"turn_id":"t1","voice_reply":true}
+```
+
+Behaviour, for ordinary text turns only (slash commands and `!` shell escapes ignore the flag):
+
+- The turn is not token-streamed: the answer arrives as one `message` event so audio can be attached.
+- The final assistant `message` gets the synthesized speech appended to `media`, so it is signed into `media_urls`
+  like any other attachment (an `.mp3` entry) and is persisted in the session transcript. `text` is always kept.
+- Progress/tool-hint messages, approval text beginning `Pending approval [`, error notices, command replies and
+  empty text are never voiced.
+- Synthesis is optional and uses the `homelab_tools.voice` package if it is installed in the same environment
+  (`ttsd.speakable` to strip markdown, `ttsd._spend` for the daily character cap, `tts.speak` for ElevenLabs, run
+  in a worker thread with a 12 second timeout, about 1200 characters spoken). When it is unavailable, over the cap,
+  slow or fails, the text message is sent normally with a `voice_error` string such as `"voice not set up"`,
+  `"daily voice limit reached"`, `"voice took too long"` or `"voice failed"`.
+- Privacy: the text of a voiced reply is sent to the speech provider (ElevenLabs).
 
 ## Configuration Reference
 
